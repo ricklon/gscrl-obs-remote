@@ -16,14 +16,16 @@ idf_component_register(
         esp_wifi
         esp_event
         esp_netif
-        esp_websocket_client
         esp_lcd
-        esp_lcd_touch
-        espressif__esp_lcd_touch_cst816s
         mbedtls
         json
         driver
         console
         esp_timer
         freertos
+        # Managed components — namespace__name form matches managed_components/ layout
+        espressif__esp_websocket_client
+        espressif__esp_lcd_touch
+        espressif__esp_lcd_touch_cst816s
+        lvgl__lvgl
 )
