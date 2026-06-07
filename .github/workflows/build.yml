@@ -1,0 +1,72 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs on new push to the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # needed for release creation on tag push
+
+jobs:
+  build:
+    name: Firmware (esp32s3 / IDF 5.3.1)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so git describe produces clean version strings
+
+      # The component manager writes managed_components/ at build time.
+      # Cache it keyed on idf_component.yml so a dep change busts the cache.
+      - name: Cache managed components
+        uses: actions/cache@v4
+        with:
+          path: managed_components
+          key: components-${{ hashFiles('main/idf_component.yml') }}
+          restore-keys: components-
+
+      - name: Build firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3.1
+          target: esp32s3
+          command: idf.py build
+
+      - name: Derive version string
+        id: version
+        run: |
+          VER=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-${GITHUB_SHA::7}")
+          echo "value=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Package firmware
+        run: bash scripts/package-firmware.sh "${{ steps.version.outputs.value }}"
+
+      # Always upload the packaged binaries as a workflow artifact (30-day retention)
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: obs-remote-${{ steps.version.outputs.value }}
+          path: firmware/
+          if-no-files-found: error
+          retention-days: 30
+
+      # On a version tag push: create a GitHub Release and attach the binaries.
+      # The web flasher's "From URL" tab can then point at the release asset URL.
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OBS Remote ${{ steps.version.outputs.value }}
+          files: firmware/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
