@@ -132,7 +132,7 @@ static void style_plain(lv_obj_t *obj, lv_color_t bg, lv_color_t border, int rad
     lv_obj_set_style_bg_color(obj, bg, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_color(obj, border, LV_PART_MAIN);
-    lv_obj_set_style_border_width(obj, border.full != C_BG.full ? 1 : 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(obj, !lv_color_eq(border, C_BG) ? 1 : 0, LV_PART_MAIN);
     lv_obj_set_style_radius(obj, radius, LV_PART_MAIN);
     lv_obj_set_style_pad_all(obj, 0, LV_PART_MAIN);
 }
@@ -253,7 +253,7 @@ static void build_main_screen(void)
                            LV_FLEX_ALIGN_START,
                            LV_FLEX_ALIGN_CENTER,
                            LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_gap(s_scene_list, SCENE_BTN_PAD, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(s_scene_list, SCENE_BTN_PAD, LV_PART_MAIN);
 
     // ── Action bar (bottom) ────────────────────────────────────────────────
     lv_obj_t *abar = lv_obj_create(scr);
@@ -367,7 +367,7 @@ static void rebuild_scene_buttons(void)
 
         // Pressed state feedback
         lv_obj_set_style_bg_color(btn, is_active ? C_ACCENT : C_BORDER,
-                                   LV_PART_MAIN | LV_STATE_PRESSED);
+                                   LV_STATE_PRESSED);
 
         s_scene_btns[i] = btn;
     }
@@ -498,7 +498,7 @@ void ui_set_stream_state(bool live, bool recording)
     }
     if (s_rec_btn) {
         apply_action_btn(s_rec_btn, s_rec_btn_label, recording, C_DANGER,
-                          recording ? LV_SYMBOL_STOP " STOP" : LV_SYMBOL_RECORD " REC");
+                          recording ? LV_SYMBOL_STOP " STOP" : LV_SYMBOL_EYE_OPEN " REC");
     }
 
     ui_unlock();
