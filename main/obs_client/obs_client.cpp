@@ -353,8 +353,8 @@ void obs_client_start(const app_config_t *cfg)
     ws_cfg.task_stack             = 6144;
 
     s.client = esp_websocket_client_init(&ws_cfg);
-    esp_websocket_client_register_events(s.client, WEBSOCKET_EVENT_ANY,
-                                          ws_event_handler, NULL);
+    esp_websocket_register_events(s.client, WEBSOCKET_EVENT_ANY,
+                                   ws_event_handler, NULL);
     esp_websocket_client_start(s.client);
     ESP_LOGI(TAG, "connecting to %s", uri);
 }

@@ -268,7 +268,7 @@ static void build_main_screen(void)
                            LV_FLEX_ALIGN_SPACE_EVENLY,
                            LV_FLEX_ALIGN_CENTER,
                            LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_gap(abar, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(abar, 8, LV_PART_MAIN);
 
     // Stream button
     int btn_w = (LCD_W - 32) / 2;

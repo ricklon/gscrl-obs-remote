@@ -8,6 +8,7 @@
 #include "driver/spi_master.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
+#include "esp_lcd_panel_interface.h"
 #include "esp_lcd_touch_cst816s.h"
 #include "esp_log.h"
 
@@ -212,8 +213,8 @@ esp_err_t board_init(esp_lcd_panel_handle_t *out_panel,
     touch_io_cfg.lcd_cmd_bits   = 8;
     touch_io_cfg.lcd_param_bits = 8;
     touch_io_cfg.flags.disable_control_phase = true;
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(
-        (esp_lcd_i2c_bus_handle_t)BOARD_I2C_HOST, &touch_io_cfg, &touch_io));
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c_v1(
+        BOARD_I2C_HOST, &touch_io_cfg, &touch_io));
 
     esp_lcd_touch_config_t touch_cfg = {};
     touch_cfg.x_max        = BOARD_LCD_W;

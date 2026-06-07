@@ -120,7 +120,7 @@ static void parse_command(const char *line, app_config_t *cfg) {
         config_print(cfg);
 
     } else if (strcmp(cmd, "!clear") == 0) {
-        config_clear(cfg);
+        config_clear();
         memset(cfg, 0, sizeof(*cfg));
         cfg->obs_port = OBS_DEFAULT_PORT;
         printf("OK: config cleared\n");
