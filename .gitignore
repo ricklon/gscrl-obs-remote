@@ -1,0 +1,9 @@
+build/
+.cache/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components/
+
+# Packaged firmware — commit only intentional releases
+firmware/*.bin

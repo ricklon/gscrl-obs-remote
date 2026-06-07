@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBS Remote — Flasher &amp; Setup</title>
+<script src="https://unpkg.com/esptool-js@0.4.4/bundle.js"></script>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2a2d3a;
+    --accent:   #7c6af7;
+    --accent2:  #5de0c5;
+    --danger:   #f75e5e;
+    --warn:     #f0b060;
+    --text:     #e2e4ef;
+    --muted:    #6b7080;
+    --radius:   10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+  }
+
+  .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  h1 { font-size: 22px; font-weight: 700; }
+  .subtitle { color: var(--muted); margin-bottom: 32px; font-size: 13px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    width: 100%; max-width: 640px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .step-badge {
+    width: 20px; height: 20px;
+    background: var(--accent); border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px; border-radius: 7px; border: none;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:hover { opacity: .88; }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+  .btn-primary   { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-danger    { background: var(--danger); color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 7px 14px;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    background: var(--border); color: var(--muted);
+  }
+  .status-pill.connected { background: #1a3a2a; color: var(--accent2); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .dot.pulse { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 16px; background: var(--bg); border-radius: 8px; padding: 3px; }
+  .tab {
+    flex: 1; padding: 7px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    background: transparent; border: none; text-align: center;
+    transition: all .15s;
+  }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Mode toggle (Full / App Update) */
+  .mode-toggle { display: flex; gap: 2px; margin-bottom: 14px; background: var(--bg); border-radius: 8px; padding: 3px; width: fit-content; }
+  .mode-btn {
+    padding: 6px 16px; border-radius: 5px; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    background: transparent; border: none; transition: all .15s;
+  }
+  .mode-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+  /* Form fields */
+  .field-group { margin-bottom: 12px; }
+  .field-label { font-size: 12px; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .field-label .optional { color: var(--border); font-style: italic; }
+  .field-input {
+    width: 100%; background: #090b10; border: 1px solid var(--border);
+    border-radius: 7px; padding: 9px 12px; color: var(--text);
+    font-size: 13px; outline: none; transition: border-color .15s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input[type=url] { font-family: monospace; }
+
+  /* Manifest preview */
+  .manifest-preview {
+    display: none;
+    background: #090b10; border: 1px solid var(--border);
+    border-radius: 7px; padding: 12px; margin-top: 12px;
+  }
+  .manifest-preview.visible { display: block; }
+  .manifest-meta {
+    font-size: 12px; color: var(--muted); margin-bottom: 10px;
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .manifest-meta strong { color: var(--text); }
+  .part-list { display: flex; flex-direction: column; gap: 6px; }
+  .part-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; font-family: monospace;
+    padding: 6px 8px; border-radius: 5px; background: var(--surface);
+  }
+  .part-row .part-status { color: var(--accent2); font-size: 14px; }
+  .part-row .part-status.loading { color: var(--warn); }
+  .part-row .part-status.error   { color: var(--danger); }
+  .part-offset { color: var(--accent); min-width: 64px; }
+  .part-name   { color: var(--text); flex: 1; }
+  .part-size   { color: var(--muted); }
+
+  /* Progress */
+  .progress-wrap { margin-top: 14px; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted); margin-bottom: 6px;
+  }
+  .progress-bar-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px; width: 0%; transition: width .15s;
+  }
+
+  /* Segmented progress parts */
+  .part-progress { margin-top: 8px; display: flex; gap: 4px; }
+  .part-seg {
+    flex: 1; height: 3px; border-radius: 2px;
+    background: var(--border); transition: background .3s;
+  }
+  .part-seg.done    { background: var(--accent2); }
+  .part-seg.active  { background: var(--accent); }
+
+  /* Log */
+  .log {
+    background: #090b10; border: 1px solid var(--border);
+    border-radius: 7px; padding: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px; line-height: 1.6; color: #c8ccd8;
+    height: 130px; overflow-y: auto; margin-top: 14px;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .log .ok   { color: var(--accent2); }
+  .log .err  { color: var(--danger); }
+  .log .info { color: var(--accent); }
+  .log .warn { color: var(--warn); }
+
+  /* Terminal */
+  .terminal {
+    background: #090b10; border: 1px solid var(--border);
+    border-radius: 7px; padding: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px; line-height: 1.6; color: #c8ccd8;
+    height: 220px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all; margin-bottom: 10px;
+  }
+  .terminal .rx  { color: #c8ccd8; }
+  .terminal .tx  { color: var(--accent2); }
+  .terminal .sys { color: var(--muted); }
+
+  .quick-cmds { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .input-row  { display: flex; gap: 8px; }
+  .cmd-input {
+    flex: 1; background: #090b10; border: 1px solid var(--border);
+    border-radius: 7px; padding: 9px 12px; color: var(--text);
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 13px; outline: none; transition: border-color .15s;
+  }
+  .cmd-input:focus { border-color: var(--accent); }
+  .cmd-input::placeholder { color: var(--muted); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .hint code {
+    background: var(--border); padding: 1px 6px; border-radius: 4px;
+    font-family: monospace; font-size: 11px;
+  }
+
+  .banner {
+    border-radius: 8px; padding: 12px 16px; font-size: 12px;
+    margin-bottom: 16px; max-width: 640px; width: 100%; display: none;
+  }
+  .banner.warn  { background: #2a1a00; border: 1px solid #5a3800; color: var(--warn); }
+  .banner.error { background: #3a1a1a; border: 1px solid #6a2a2a; color: var(--danger); }
+
+  footer { margin-top: 24px; color: var(--muted); font-size: 12px; text-align: center; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="logo">
+  <div class="logo-icon">🎬</div>
+  <h1>OBS Remote</h1>
+</div>
+<p class="subtitle">ESP32-S3 Touch AMOLED — Flasher &amp; Setup</p>
+
+<div class="banner warn" id="compat-banner">
+  ⚠️ WebSerial is not supported in this browser. Use <strong>Chrome</strong> or <strong>Edge</strong> on desktop.
+</div>
+
+<!-- ── Step 1: Connect ──────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-title"><span class="step-badge">1</span> Connect Device</div>
+  <div class="row">
+    <button class="btn btn-primary" id="btn-connect" onclick="connectDevice()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Connect via USB
+    </button>
+    <button class="btn btn-danger" id="btn-disconnect" onclick="disconnectDevice()" style="display:none">
+      Disconnect
+    </button>
+    <span class="status-pill" id="conn-status">
+      <span class="dot"></span> Not connected
+    </span>
+  </div>
+  <p class="hint" style="margin-top:12px">
+    Hold <code>BOOT</code> while plugging in USB-C if the device isn't detected.<br>
+    Requires Chrome or Edge on desktop — Firefox and Safari do not support WebSerial.
+  </p>
+</div>
+
+<!-- ── Step 2: Flash ────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-title"><span class="step-badge">2</span> Flash Firmware</div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" onclick="switchTab('url',this)">From URL (manifest)</button>
+    <button class="tab"        onclick="switchTab('file',this)">From Local Files</button>
+  </div>
+
+  <!-- URL tab -->
+  <div class="tab-panel active" id="tab-url">
+    <div class="field-group">
+      <div class="field-label">manifest.json URL</div>
+      <div class="row" style="gap:8px">
+        <input class="field-input" id="manifest-url" type="url"
+          placeholder="https://your-host/firmware/manifest.json"
+          style="flex:1" onkeydown="if(event.key==='Enter')loadManifest()">
+        <button class="btn btn-secondary btn-sm" onclick="loadManifest()" id="btn-load-manifest">
+          Load
+        </button>
+      </div>
+    </div>
+
+    <div class="manifest-preview" id="manifest-preview">
+      <div class="manifest-meta" id="manifest-meta"></div>
+      <div class="part-list" id="manifest-parts"></div>
+    </div>
+
+    <p class="hint">
+      Generated by <code>./scripts/package-firmware.sh</code> and hosted alongside the <code>.bin</code> files.<br>
+      GitHub Release assets work without any CORS config.
+    </p>
+  </div>
+
+  <!-- File tab -->
+  <div class="tab-panel" id="tab-file">
+    <div class="mode-toggle" id="mode-toggle">
+      <button class="mode-btn active" onclick="setMode('full',this)">Full Install</button>
+      <button class="mode-btn"        onclick="setMode('app',this)">App Update</button>
+    </div>
+
+    <div id="file-full">
+      <div class="field-group">
+        <div class="field-label">Bootloader <span class="optional">bootloader.bin @ 0x0000</span></div>
+        <input class="field-input" id="file-bootloader" type="file" accept=".bin">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Partition Table <span class="optional">partition-table.bin @ 0x8000</span></div>
+        <input class="field-input" id="file-partition" type="file" accept=".bin">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">App Binary <span class="optional">obs-remote.bin @ 0x10000</span></div>
+      <input class="field-input" id="file-app" type="file" accept=".bin">
+    </div>
+
+    <p class="hint">
+      <strong>Full Install</strong> — use on a fresh chip or after <code>idf.py erase-flash</code>.<br>
+      <strong>App Update</strong> — flash only the app when bootloader &amp; partitions are already correct.
+    </p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="row" style="margin-bottom:14px">
+    <button class="btn btn-primary" id="btn-flash" onclick="flashFirmware()" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <span id="btn-flash-label">Flash</span>
+    </button>
+  </div>
+
+  <div class="progress-wrap" id="flash-progress">
+    <div class="progress-label">
+      <span id="progress-text">Preparing…</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="part-progress" id="part-progress"></div>
+  </div>
+
+  <div class="log" id="flash-log"></div>
+</div>
+
+<!-- ── Step 3: Configure ────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-title"><span class="step-badge">3</span> Configure Device</div>
+
+  <div class="quick-cmds">
+    <button class="btn btn-ghost" style="font-family:monospace;font-size:11px" onclick="fillCmd('!help')">!help</button>
+    <button class="btn btn-ghost" style="font-family:monospace;font-size:11px" onclick="fillCmd('!status')">!status</button>
+    <button class="btn btn-ghost" style="font-family:monospace;font-size:11px" onclick="fillCmd('!wifi  ')">!wifi</button>
+    <button class="btn btn-ghost" style="font-family:monospace;font-size:11px" onclick="fillCmd('!server  ')">!server</button>
+    <button class="btn btn-ghost" style="font-family:monospace;font-size:11px" onclick="fillCmd('!clear')">!clear</button>
+  </div>
+
+  <div class="terminal" id="terminal"></div>
+
+  <div class="input-row">
+    <input class="cmd-input" id="cmd-input" type="text"
+      placeholder="!server 192.168.1.50 obspassword"
+      onkeydown="onCmdKey(event)">
+    <button class="btn btn-secondary" onclick="sendCmd()" id="btn-send" disabled>Send</button>
+  </div>
+
+  <p class="hint" style="margin-top:10px">
+    After flashing the terminal connects automatically at 115200 baud.<br>
+    Example: <code>!wifi MyNetwork MyWifiPass</code> &rarr; <code>!server 192.168.1.50 obspassword</code>
+  </p>
+</div>
+
+<footer>
+  OBS Remote &mdash; <a href="https://github.com/yourrepo/gscrl-obs-remote" target="_blank">GitHub</a>
+</footer>
+
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let port      = null;
+let reader    = null;
+let readLoop  = false;
+let flashMode = 'full';                 // 'full' | 'app'
+let currentManifest = null;            // parsed manifest.json
+let loadedParts     = [];              // [{name, offset, data: ArrayBuffer}]
+
+// ── Compat check ───────────────────────────────────────────────────────────
+if (!('serial' in navigator)) {
+  document.getElementById('compat-banner').style.display = 'block';
+  document.getElementById('btn-connect').disabled = true;
+}
+
+// ── Tab / mode switching ───────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+  updateFlashButton();
+}
+
+function setMode(mode, btn) {
+  flashMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('file-full').style.display = mode === 'full' ? '' : 'none';
+  updateFlashButton();
+}
+
+// ── Connect / disconnect ───────────────────────────────────────────────────
+async function connectDevice() {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    setConnected(true);
+    startReadLoop();
+  } catch(e) {
+    if (e.name !== 'NotSelectedError') flashLog('ERR', 'Connect failed: ' + e.message);
+  }
+}
+
+async function disconnectDevice() {
+  readLoop = false;
+  try { if (reader) { await reader.cancel(); reader = null; } } catch(_) {}
+  try { if (port)   { await port.close(); port = null; }      } catch(_) {}
+  setConnected(false);
+  termPrint('sys', '--- disconnected ---\n');
+}
+
+function setConnected(ok) {
+  const pill = document.getElementById('conn-status');
+  document.getElementById('btn-connect').style.display    = ok ? 'none' : '';
+  document.getElementById('btn-disconnect').style.display = ok ? '' : 'none';
+  document.getElementById('btn-send').disabled = !ok;
+  pill.className = ok ? 'status-pill connected' : 'status-pill';
+  pill.innerHTML = ok
+    ? '<span class="dot pulse"></span> Connected'
+    : '<span class="dot"></span> Not connected';
+  updateFlashButton();
+}
+
+// ── Serial read loop ───────────────────────────────────────────────────────
+async function startReadLoop() {
+  readLoop = true;
+  const dec = new TextDecoder();
+  while (port && port.readable && readLoop) {
+    reader = port.readable.getReader();
+    try {
+      while (readLoop) {
+        const { value, done } = await reader.read();
+        if (done || !readLoop) break;
+        termPrint('rx', dec.decode(value));
+      }
+    } catch(e) {
+      if (readLoop) termPrint('sys', 'Read error: ' + e.message + '\n');
+    } finally {
+      reader.releaseLock();
+      reader = null;
+    }
+  }
+}
+
+// ── Manifest loading ───────────────────────────────────────────────────────
+async function loadManifest() {
+  const url = document.getElementById('manifest-url').value.trim();
+  if (!url) return;
+
+  const preview = document.getElementById('manifest-preview');
+  const meta    = document.getElementById('manifest-meta');
+  const parts   = document.getElementById('manifest-parts');
+
+  preview.classList.add('visible');
+  meta.innerHTML = '<span>Loading…</span>';
+  parts.innerHTML = '';
+  currentManifest = null;
+  loadedParts = [];
+  updateFlashButton();
+
+  let manifest;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    manifest = await resp.json();
+  } catch(e) {
+    meta.innerHTML = `<span style="color:var(--danger)">Failed to load manifest: ${e.message}</span>`;
+    return;
+  }
+
+  currentManifest = manifest;
+  const base = url.substring(0, url.lastIndexOf('/') + 1);
+
+  meta.innerHTML = `
+    <span>Version: <strong>${manifest.version || 'unknown'}</strong></span>
+    <span>Built: <strong>${manifest.built || '—'}</strong></span>
+  `;
+
+  // Render part rows and fetch binaries in parallel
+  const partKeys = Object.keys(manifest.files);
+  partKeys.forEach(key => {
+    const f = manifest.files[key];
+    const row = document.createElement('div');
+    row.className = 'part-row';
+    row.id = 'part-row-' + key;
+    row.innerHTML = `
+      <span class="part-status loading" id="part-status-${key}">⟳</span>
+      <span class="part-offset">${f.offset}</span>
+      <span class="part-name">${f.file}</span>
+      <span class="part-size" id="part-size-${key}">fetching…</span>
+    `;
+    parts.appendChild(row);
+  });
+
+  // Fetch all parts in parallel
+  const results = await Promise.allSettled(
+    partKeys.map(key => fetchPart(key, manifest.files[key], base))
+  );
+
+  const allOk = results.every(r => r.status === 'fulfilled');
+  if (allOk) {
+    flashLog('OK', `Manifest loaded — ${loadedParts.length} parts ready`);
+    updateFlashButton();
+  } else {
+    flashLog('ERR', 'One or more parts failed to fetch — see manifest preview');
+  }
+}
+
+async function fetchPart(key, fileDef, baseUrl) {
+  const url = baseUrl + fileDef.file;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.arrayBuffer();
+
+    document.getElementById('part-status-' + key).textContent = '✓';
+    document.getElementById('part-status-' + key).classList.remove('loading');
+    document.getElementById('part-size-'   + key).textContent =
+      (data.byteLength / 1024).toFixed(1) + ' KB';
+
+    loadedParts.push({
+      name:   fileDef.file,
+      offset: parseInt(fileDef.offset, 16),
+      data,
+    });
+  } catch(e) {
+    document.getElementById('part-status-' + key).textContent = '✗';
+    document.getElementById('part-status-' + key).classList.replace('loading', 'error');
+    document.getElementById('part-size-'   + key).textContent = e.message;
+    throw e;
+  }
+}
+
+// ── Flash button state ─────────────────────────────────────────────────────
+function updateFlashButton() {
+  const btn       = document.getElementById('btn-flash');
+  const label     = document.getElementById('btn-flash-label');
+  const connected = !!port;
+  const isUrlTab  = document.getElementById('tab-url').classList.contains('active');
+
+  if (isUrlTab) {
+    const ready = connected && loadedParts.length > 0;
+    btn.disabled = !ready;
+    label.textContent = `Flash (${loadedParts.length} part${loadedParts.length !== 1 ? 's' : ''})`;
+  } else {
+    btn.disabled = !connected;
+    label.textContent = flashMode === 'full' ? 'Full Install' : 'App Update';
+  }
+}
+
+// ── Flash firmware ─────────────────────────────────────────────────────────
+async function flashFirmware() {
+  if (!port) return;
+
+  const isUrlTab = document.getElementById('tab-url').classList.contains('active');
+  let parts; // [{name, offset, data: ArrayBuffer}]
+
+  if (isUrlTab) {
+    if (!loadedParts.length) { flashLog('ERR', 'Load the manifest first'); return; }
+    parts = loadedParts;
+  } else {
+    parts = await buildPartsFromFiles();
+    if (!parts) return;
+  }
+
+  // Sort parts by ascending offset so esptool writes in order
+  parts = [...parts].sort((a, b) => a.offset - b.offset);
+
+  const fileArray = parts.map(p => ({
+    data:    arrayBufferToBinaryString(p.data),
+    address: p.offset,
+  }));
+
+  const fileSizes  = parts.map(p => p.data.byteLength);
+  const totalBytes = fileSizes.reduce((a, b) => a + b, 0);
+
+  // Build segmented progress indicators
+  const segContainer = document.getElementById('part-progress');
+  segContainer.innerHTML = '';
+  parts.forEach((p, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'part-seg';
+    seg.id = 'seg-' + i;
+    seg.title = p.name;
+    seg.style.flex = fileSizes[i]; // proportional width
+    segContainer.appendChild(seg);
+  });
+
+  // Pause the terminal read loop — esptool needs exclusive port access
+  readLoop = false;
+  if (reader) { try { await reader.cancel(); } catch(_) {} reader = null; }
+  await port.close();
+  port = null;
+
+  document.getElementById('btn-flash').disabled = true;
+  document.getElementById('flash-progress').classList.add('visible');
+  setProgress(0, 'Connecting to chip…');
+  flashLog('INFO', `Starting flash — ${parts.length} parts, ${(totalBytes / 1024).toFixed(1)} KB total`);
+
+  let transport, loader;
+
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+
+    transport = new Transport(port, true);
+    loader    = new ESPLoader({ transport, baudrate: 115200, terminal: null });
+
+    flashLog('INFO', 'Detecting chip…');
+    const chip = await loader.main();
+    flashLog('OK', `Chip: ${chip}`);
+
+    setProgress(0, `Erasing regions…`);
+
+    let currentFileIndex = -1;
+
+    await loader.writeFlash({
+      fileArray,
+      flashSize: 'keep',
+      flashMode: 'keep',
+      flashFreq: 'keep',
+      eraseAll:  false,
+      compress:  true,
+      reportProgress(fileIndex, written, total) {
+        // Activate segment on first callback for a new file
+        if (fileIndex !== currentFileIndex) {
+          if (currentFileIndex >= 0)
+            document.getElementById('seg-' + currentFileIndex).classList.replace('active', 'done');
+          currentFileIndex = fileIndex;
+          document.getElementById('seg-' + fileIndex).classList.add('active');
+          flashLog('INFO', `Writing ${parts[fileIndex].name} @ 0x${parts[fileIndex].offset.toString(16).padStart(5,'0').toUpperCase()}`);
+        }
+
+        const bytesBeforeThis = fileSizes.slice(0, fileIndex).reduce((a, b) => a + b, 0);
+        const overallWritten  = bytesBeforeThis + written;
+        const pct             = Math.round((overallWritten / totalBytes) * 100);
+        const partNum         = fileIndex + 1;
+        setProgress(pct, `Part ${partNum}/${parts.length}: ${parts[fileIndex].name} — ${pct}%`);
+      },
+    });
+
+    // Mark last segment done
+    if (currentFileIndex >= 0)
+      document.getElementById('seg-' + currentFileIndex).classList.replace('active', 'done');
+
+    setProgress(100, 'Done — resetting device');
+    flashLog('OK', 'Flash complete');
+    await loader.hardReset();
+
+  } catch(e) {
+    flashLog('ERR', 'Flash failed: ' + e.message);
+    console.error(e);
+  } finally {
+    try { if (transport) await transport.disconnect(); } catch(_) {}
+    try { if (port)      await port.close(); }          catch(_) {}
+    port = null;
+
+    // Reconnect for terminal
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      setConnected(true);
+      termPrint('sys', '--- reconnected after flash ---\n');
+      startReadLoop();
+    } catch(_) {
+      setConnected(false);
+    }
+  }
+}
+
+async function buildPartsFromFiles() {
+  const appFile  = document.getElementById('file-app').files[0];
+  if (!appFile) { flashLog('ERR', 'Select an app binary (.bin)'); return null; }
+
+  const parts = [];
+
+  if (flashMode === 'full') {
+    const bootFile = document.getElementById('file-bootloader').files[0];
+    const partFile = document.getElementById('file-partition').files[0];
+    if (!bootFile) { flashLog('ERR', 'Select a bootloader.bin for Full Install'); return null; }
+    if (!partFile) { flashLog('ERR', 'Select a partition-table.bin for Full Install'); return null; }
+    parts.push({ name: bootFile.name, offset: 0x0000, data: await bootFile.arrayBuffer() });
+    parts.push({ name: partFile.name, offset: 0x8000, data: await partFile.arrayBuffer() });
+  }
+
+  parts.push({ name: appFile.name, offset: 0x10000, data: await appFile.arrayBuffer() });
+  return parts;
+}
+
+// ── Progress helpers ───────────────────────────────────────────────────────
+function setProgress(pct, label) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = label;
+  document.getElementById('progress-pct').textContent  = pct + '%';
+}
+
+function arrayBufferToBinaryString(buf) {
+  const bytes = new Uint8Array(buf);
+  let s = '';
+  // Process in chunks to avoid call stack limits on large binaries
+  for (let i = 0; i < bytes.length; i += 8192)
+    s += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  return s;
+}
+
+// ── Flash log ──────────────────────────────────────────────────────────────
+function flashLog(level, msg) {
+  const log = document.getElementById('flash-log');
+  const cls = { OK: 'ok', ERR: 'err', INFO: 'info', WARN: 'warn' }[level] || '';
+  const el  = document.createElement('span');
+  el.className   = cls;
+  el.textContent = `[${level}] ${msg}\n`;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── Terminal ───────────────────────────────────────────────────────────────
+function termPrint(cls, text) {
+  const term = document.getElementById('terminal');
+  const el   = document.createElement('span');
+  el.className   = cls;
+  el.textContent = text;
+  term.appendChild(el);
+  term.scrollTop = term.scrollHeight;
+}
+
+async function sendCmd() {
+  const input = document.getElementById('cmd-input');
+  const text  = input.value.trim();
+  if (!text || !port || !port.writable) return;
+  const w = port.writable.getWriter();
+  await w.write(new TextEncoder().encode(text + '\n'));
+  w.releaseLock();
+  termPrint('tx', '> ' + text + '\n');
+  input.value = '';
+}
+
+function onCmdKey(e) { if (e.key === 'Enter') sendCmd(); }
+
+function fillCmd(cmd) {
+  const input = document.getElementById('cmd-input');
+  input.value = cmd;
+  input.focus();
+  input.setSelectionRange(cmd.length, cmd.length);
+}
+</script>
+</body>
+</html>

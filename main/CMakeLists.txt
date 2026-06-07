@@ -1,0 +1,29 @@
+idf_component_register(
+    SRCS
+        "main.cpp"
+        "config/config.cpp"
+        "obs_client/obs_client.cpp"
+        "board/board.cpp"
+        "ui/ui.cpp"
+    INCLUDE_DIRS
+        "."
+        "config"
+        "obs_client"
+        "board"
+        "ui"
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_event
+        esp_netif
+        esp_websocket_client
+        esp_lcd
+        esp_lcd_touch
+        espressif__esp_lcd_touch_cst816s
+        mbedtls
+        json
+        driver
+        console
+        esp_timer
+        freertos
+)
